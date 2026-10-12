@@ -1,0 +1,130 @@
+{
+  "workflowName": "GBS - Five Mailbox Reply Check (INACTIVE)",
+  "sourceWorkflowId": "iW8Dpu4N0m56FBmh",
+  "active": false,
+  "updatedAt": "2026-10-10T22:21:40.772Z",
+  "backupKind": "sanitized logic and topology; NOT directly importable; no credentials",
+  "nodes": [
+    {
+      "name": "Follow-Up Reply Verification Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2
+    },
+    {
+      "name": "Validate Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "logic": "return $input.all().map(item=>{const e=item.json||{};const email=String(e.customerEmail||'').trim().toLowerCase();const sent=String(e.sentAt||'');const good=/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)&&Number.isFinite(Date.parse(sent))&&!!String(e.inquiryKey||'').trim();return {json:{...e,customerEmail:email,validatedRequest:good,querySafety:good?'OK':'INVALID_INPUT',replyVerified:false,sendSMS:false}};}).filter(x=>x.json.validatedRequest);"
+    },
+    {
+      "name": "Chris Reply Read",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2
+    },
+    {
+      "name": "Sales Reply Read",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2
+    },
+    {
+      "name": "Support Reply Read",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2
+    },
+    {
+      "name": "Ethan Reply Read",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2
+    },
+    {
+      "name": "Gmail Reply Read",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2
+    },
+    {
+      "name": "Summarize Reply Search - NO SEND",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "logic": "const request=$items('Validate Request')[0]?.json||{};const sources=['Chris Reply Read','Sales Reply Read','Support Reply Read','Ethan Reply Read','Gmail Reply Read'];function email(x){if(typeof x==='string')return (x.match(/<([^>]+)>/)?.[1]||x).trim().toLowerCase();return String(x?.emailAddress?.address||x?.address||x?.email||'').trim().toLowerCase()}const results=sources.map(name=>{let items=[];let error=null;try{items=$items(name).map(x=>x.json||{})}catch(e){error='source-unavailable'}if(items.some(x=>x.error||x.statusCode>=400))error='source-reported-error';const matching=items.filter(x=>{const from=email(x.from||x.From||x.payload?.from);const ts=x.receivedDateTime||x.date||x.payload?.date||(x.internalDate?new Date(Number(x.internalDate)).toISOString():null);return from===request.customerEmail&&ts&&Date.parse(ts)>Date.parse(request.sentAt)});return {mailbox:name,matchingReplies:matching.length,searchSucceeded:error===null,error}});const count=results.reduce((n,x)=>n+x.matchingReplies,0);const searchesOk=results.every(x=>x.searchSucceeded);return [{json:{inquiryKey:request.inquiryKey,customerEmail:request.customerEmail,mailboxesChecked:results.map(x=>x.mailbox),matchingReplyCount:count,customerReplied:count>0?true:null,allFiveReplyChecksPassed:false,replyVerificationStatus:searchesOk?'UNVERIFIED_THREAD_MATCHING':'MAILBOX_QUERY_ERROR',sendSMS:false,staffAlert:false,results,note:'Fail closed: no customer-replied=false conclusion from mailbox-only sender/time checks; require RFC thread linkage and verified complete query coverage.'}}];"
+    }
+  ],
+  "connections": {
+    "Follow-Up Reply Verification Input": {
+      "main": [
+        [
+          {
+            "node": "Validate Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Request": {
+      "main": [
+        [
+          {
+            "node": "Chris Reply Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chris Reply Read": {
+      "main": [
+        [
+          {
+            "node": "Sales Reply Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sales Reply Read": {
+      "main": [
+        [
+          {
+            "node": "Support Reply Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Support Reply Read": {
+      "main": [
+        [
+          {
+            "node": "Ethan Reply Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ethan Reply Read": {
+      "main": [
+        [
+          {
+            "node": "Gmail Reply Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Reply Read": {
+      "main": [
+        [
+          {
+            "node": "Summarize Reply Search - NO SEND",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
