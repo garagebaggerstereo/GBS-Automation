@@ -1,0 +1,33 @@
+{
+  "workflowName": "GBS SMS Safety Gate - HARD OFF (INACTIVE)",
+  "sourceWorkflowId": "eatY9C08lWfGvlfL",
+  "active": false,
+  "updatedAt": "2026-10-10T22:38:37.223Z",
+  "backupKind": "sanitized logic and topology; NOT directly importable; no credentials",
+  "nodes": [
+    {
+      "name": "Trusted Internal Verification Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2
+    },
+    {
+      "name": "Evaluate SMS Eligibility - HARD OFF",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "logic": "const hardKillSwitch=true;return $input.all().map(item=>{const e=item.json||{};const blockers=[];if(hardKillSwitch)blockers.push('sms-kill-switch-active');if(!String(e.inquiryKey||'').startsWith('rfc:'))blockers.push('missing-rfc-inquiry-key');if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(String(e.customerEmail||'')))blockers.push('invalid-customer-email');if(!Number.isFinite(Date.parse(String(e.sentAt||'')))||Date.now()<Date.parse(String(e.sentAt||''))+86400000)blockers.push('24-hour-wait-not-verified');if(e.threadRootVerified!==true)blockers.push('thread-root-not-verified');if(e.exclusiveClaimVerified!==true)blockers.push('exclusive-inquiry-claim-not-verified');if(e.allFiveReplyChecksPassed!==true)blockers.push('reply-check-incomplete');if(e.customerReplied!==false)blockers.push('customer-reply-unknown-or-present');if(e.consentEvidenceVerified!==true||!e.consentSource||!e.consentGivenAt)blockers.push('documented-consent-not-verified');if(e.optOutStatusVerified!==true)blockers.push('opt-out-status-unverified');if(e.optedOut!==false)blockers.push('customer-opted-out-or-unknown');if(!/^\\+[1-9]\\d{9,14}$/.test(String(e.phoneE164||'')))blockers.push('phone-not-e164');if(e.callLoopFromVerified!==true)blockers.push('call-loop-sender-not-verified');if(e.existingEstimateReminder!==false)blockers.push('estimate-follow-up-overlap-unknown-or-present');if(e.alreadySent!==false)blockers.push('prior-sms-unknown-or-sent');return {json:{inquiryKey:String(e.inquiryKey||''),smsEligible:false,smsSendingEnabled:false,status:'BLOCKED',blockers,eligibleAfterSourceChecks:blockers.filter(x=>x!=='sms-kill-switch-active').length===0,note:'Hard kill switch active. This workflow never sends customer messages.'}};});"
+    }
+  ],
+  "connections": {
+    "Trusted Internal Verification Input": {
+      "main": [
+        [
+          {
+            "node": "Evaluate SMS Eligibility - HARD OFF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
