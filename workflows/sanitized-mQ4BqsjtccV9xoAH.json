@@ -1,0 +1,149 @@
+{
+  "workflowName": "GBS Sent Mail Poll - Five Sources (INACTIVE)",
+  "sourceWorkflowId": "mQ4BqsjtccV9xoAH",
+  "active": false,
+  "updatedAt": "2026-10-10T21:23:44.083Z",
+  "backupKind": "sanitized logic and topology; NOT directly importable; no credentials",
+  "nodes": [
+    {
+      "name": "Hourly Sent Items Scan - INACTIVE",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4
+    },
+    {
+      "name": "Read Chris Sent Items",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2
+    },
+    {
+      "name": "Filter and Normalize - READ ONLY",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "logic": "const approved=new Set(['chris@garagebaggerstereo.com','ethan@garagebaggerstereo.com','sales@garagebaggerstereo.com','support@garagebaggerstereo.com','garagebaggerstereo@gmail.com']);function addr(x){if(typeof x==='string')return (x.match(/<([^>]+)>/)?.[1]||x).trim().toLowerCase();return String(x?.emailAddress?.address||'').trim().toLowerCase()}return $input.all().map(item=>{const e=item.json||{};const hdr=e.headers||e.payload?.headers||[];const hv=(n)=>Array.isArray(hdr)?(hdr.find(h=>String(h.name||'').toLowerCase()===n.toLowerCase())?.value||''):(Object.entries(hdr).find(([k])=>k.toLowerCase()===n.toLowerCase())?.[1]||'');const from=addr(e.from||e.From||hv('from'));const tos=Array.isArray(e.toRecipients)?e.toRecipients.map(addr):[addr(e.to||e.To||hv('to'))];const refs=String(hv('references')||'').trim().split(/\\s+/).filter(Boolean);const root=refs[0]||String(hv('in-reply-to')||'').trim()||null;const mid=e.internetMessageId||hv('message-id')||null;const sentRaw=e.sentDateTime||e.internalDate||e.date||hv('date')||null;const normalizedTo=tos.filter(Boolean);const sentAt=sentRaw&&/^\\d{12,}$/.test(String(sentRaw))?new Date(Number(sentRaw)).toISOString():sentRaw;const sentMs=Date.parse(String(sentAt||''));const recent=Number.isFinite(sentMs)&&sentMs>=Date.now()-36*3600000&&sentMs<=Date.now()+300000;const eligible=approved.has(from)&&normalizedTo.length===1&&!approved.has(normalizedTo[0])&&recent;return {json:{sourceProvider:e.internetMessageId?'outlook':'gmail',sourceMessageId:e.id||null,rfcMessageId:mid,threadRootMessageId:root,references:hv('references')||null,inReplyTo:hv('in-reply-to')||null,providerConversationId:e.conversationId||e.threadId||null,from,to:normalizedTo[0]||null,sentAt,subject:e.subject||e.Subject||'',body:e.body?.content||e.text||e.snippet||'',candidate:!!eligible,noOutboundActions:true}};}).filter(x=>x.json.candidate);"
+    },
+    {
+      "name": "Read Sales Sent Items",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2
+    },
+    {
+      "name": "Read Support Sent Items",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2
+    },
+    {
+      "name": "Read Ethan Sent Items",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2
+    },
+    {
+      "name": "Read Gmail Sent Items",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2
+    },
+    {
+      "name": "Stage New Cases For Review - NO SMS",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4
+    }
+  ],
+  "connections": {
+    "Hourly Sent Items Scan - INACTIVE": {
+      "main": [
+        [
+          {
+            "node": "Read Chris Sent Items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Sales Sent Items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Support Sent Items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Ethan Sent Items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Gmail Sent Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Chris Sent Items": {
+      "main": [
+        [
+          {
+            "node": "Filter and Normalize - READ ONLY",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Sales Sent Items": {
+      "main": [
+        [
+          {
+            "node": "Filter and Normalize - READ ONLY",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Support Sent Items": {
+      "main": [
+        [
+          {
+            "node": "Filter and Normalize - READ ONLY",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Ethan Sent Items": {
+      "main": [
+        [
+          {
+            "node": "Filter and Normalize - READ ONLY",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Gmail Sent Items": {
+      "main": [
+        [
+          {
+            "node": "Filter and Normalize - READ ONLY",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter and Normalize - READ ONLY": {
+      "main": [
+        [
+          {
+            "node": "Stage New Cases For Review - NO SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
