@@ -1,0 +1,154 @@
+{
+  "workflowName": "GBS Customer Follow-Up - Development",
+  "sourceWorkflowId": "cvNutkpvioLIXl1L",
+  "active": false,
+  "updatedAt": "2026-10-10T20:26:09.565Z",
+  "backupKind": "sanitized logic and topology; NOT directly importable; no credentials",
+  "nodes": [
+    {
+      "name": "Manual Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1
+    },
+    {
+      "name": "Development Status",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5
+    },
+    {
+      "name": "Classify Outbound Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "logic": "return $input.all().map(item=>{const e=item.json||{};const from=String(e.from||e.mailbox||'').trim().toLowerCase();const to=String(e.to||'').trim().toLowerCase();const approved=['chris@garagebaggerstereo.com','ethan@garagebaggerstereo.com','sales@garagebaggerstereo.com','support@garagebaggerstereo.com','garagebaggerstereo@gmail.com'].includes(from);const internal=to.endsWith('@garagebaggerstereo.com')||to==='garagebaggerstereo@gmail.com';const body=String(e.body||'');const subject=String(e.subject||'');const asks=/(please (reply|send|provide|confirm)|could you|can you (tell|send|provide|confirm)|we need (more|your)|let us know|what (year|model)|which (bike|model))/i.test(body);const excluded=/invoice|tracking|shipment|newsletter|marketing|estimate follow.up|order confirmation/i.test(subject);const refs=String(e.references||'').trim().split(/\\s+/).filter(Boolean);const root=String(e.threadRootMessageId||refs[0]||e.inReplyTo||e.rfcMessageId||'').trim();const sentMs=Date.parse(String(e.sentAt||''));const reason=!approved?'unrecognized-sender':!to||/[;,]/.test(to)?'invalid-recipient':internal?'internal-email':excluded?'excluded-message':!asks?'not-clear-info-request':!Number.isFinite(sentMs)?'invalid-sent-time':!root?'no-rfc-root':'qualified-needs-reply-and-consent';const qualified=reason==='qualified-needs-reply-and-consent';return {json:{...e,from,to,customerEmail:to,inquiryKey:root?'rfc:'+root:null,dueAt:qualified?new Date(sentMs+86400000).toISOString():null,qualified,reason,threadRootSource:e.threadRootMessageId?'explicit-root':refs.length?'references':e.inReplyTo?'in-reply-to':e.rfcMessageId?'first-message':'unavailable',smsSendingEnabled:false,customerReplyVerified:false,consentVerified:false,optOutVerified:false,atomicClaimVerified:false}};});"
+    },
+    {
+      "name": "Hold 24 Hours - Development Only",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resume": "specificTime",
+        "dateTime": "={{ $json.dueAt }}"
+      }
+    },
+    {
+      "name": "Block Reminder Until Verified",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5
+    },
+    {
+      "name": "Only Qualified Sent Requests",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.qualified }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              },
+              "rightValue": true
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "name": "Read-Only Five-Mailbox Reply Check",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4
+    },
+    {
+      "name": "Mandatory SMS Safety Gate - HARD OFF",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4
+    }
+  ],
+  "connections": {
+    "Manual Start": {
+      "main": [
+        [
+          {
+            "node": "Development Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Development Status": {
+      "main": [
+        [
+          {
+            "node": "Classify Outbound Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Outbound Email": {
+      "main": [
+        [
+          {
+            "node": "Only Qualified Sent Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only Qualified Sent Requests": {
+      "main": [
+        [
+          {
+            "node": "Hold 24 Hours - Development Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hold 24 Hours - Development Only": {
+      "main": [
+        [
+          {
+            "node": "Read-Only Five-Mailbox Reply Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read-Only Five-Mailbox Reply Check": {
+      "main": [
+        [
+          {
+            "node": "Mandatory SMS Safety Gate - HARD OFF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mandatory SMS Safety Gate - HARD OFF": {
+      "main": [
+        [
+          {
+            "node": "Block Reminder Until Verified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
