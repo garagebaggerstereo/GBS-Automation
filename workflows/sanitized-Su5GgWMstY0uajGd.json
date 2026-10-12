@@ -1,0 +1,65 @@
+{
+  "workflowName": "GBS Inquiry Staging - NO SMS (INACTIVE)",
+  "sourceWorkflowId": "Su5GgWMstY0uajGd",
+  "active": false,
+  "updatedAt": "2026-10-10T23:19:01.716Z",
+  "backupKind": "sanitized logic and topology; NOT directly importable; no credentials",
+  "nodes": [
+    {
+      "name": "Validated Sent Email Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2
+    },
+    {
+      "name": "Qualify and Prepare Case - NO SMS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "logic": "const safe=['chris@garagebaggerstereo.com','ethan@garagebaggerstereo.com','sales@garagebaggerstereo.com','support@garagebaggerstereo.com','garagebaggerstereo@gmail.com'];return $input.all().map(item=>{const e=item.json||{};const from=String(e.from||'').trim().toLowerCase();const to=String(e.to||'').trim().toLowerCase();const body=String(e.body||'').split('-----Original Message-----')[0].split('gmail_quote')[0].split('blockquote')[0];const subject=String(e.subject||'');const sent=Date.parse(String(e.sentAt||''));const root=String(e.threadRootMessageId||e.rfcMessageId||'').trim();const validRoot=/^<[^<>\\s@]+@[^<>\\s@]+>$/.test(root);const qualified=safe.includes(from)&&!!to&&!safe.includes(to)&&!to.endsWith('@garagebaggerstereo.com')&&/^[^ @]+@[^ @]+[.][^ @]+$/.test(to)&&Number.isFinite(sent)&&sent>=Date.now()-36*3600000&&sent<=Date.now()+300000&&validRoot&&!/(invoice|tracking|shipment|marketing|newsletter|estimate follow.up|order confirmation)/i.test(subject)&&/(please (send|reply|provide|confirm)|could you|can you (tell|send|provide|confirm)|we need (more|your)|let us know|what (year|model)|which (bike|model))/i.test(body);return {json:{inquiryKey:root?'rfc:'+root:null,customerEmail:to,sourceMailbox:from,messageId:String(e.sourceMessageId||''),sentAt:Number.isFinite(sent)?new Date(sent).toISOString():null,dueAt:Number.isFinite(sent)?new Date(sent+86400000).toISOString():null,status:'Pending Review',replyVerified:false,smsConsentVerified:false,smsOptedOut:false,smsSent:false,phone:'',skipReason:'Thread linkage, reply, SMS consent, opt-out and claim require verification',qualified,sendSMS:false}};}).filter(x=>x.json.qualified);"
+    },
+    {
+      "name": "Skip Existing Inquiry Rows",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1
+    },
+    {
+      "name": "Insert Pending Review - NO SMS",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1
+    }
+  ],
+  "connections": {
+    "Validated Sent Email Input": {
+      "main": [
+        [
+          {
+            "node": "Qualify and Prepare Case - NO SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qualify and Prepare Case - NO SMS": {
+      "main": [
+        [
+          {
+            "node": "Skip Existing Inquiry Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip Existing Inquiry Rows": {
+      "main": [
+        [
+          {
+            "node": "Insert Pending Review - NO SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
